@@ -48,7 +48,7 @@ run "pii_precede_a_todo_exporter" {
   command = plan
 
   assert {
-    condition     = strcontains(output.rendered_config, "processors: [\"memory_limiter\",\"transform/business-semantics\",\"transform/pii\"]")
+    condition     = strcontains(output.rendered_config, "processors: [\"memory_limiter\",\"filter/probes\",\"transform/business-semantics\",\"transform/pii\"]")
     error_message = "transform/pii debe estar en el pipeline de ingesta, antes de span_metrics y de los exporters."
   }
 

@@ -11,6 +11,14 @@ processors:
     check_interval: 1s
     limit_percentage: 80
     spike_limit_percentage: 20
+
+  # Probes de Kubernetes: sin valor de diagnóstico, costo de ingesta y distorsión del SLI
+  # (requests sintéticos siempre exitosos inflan el denominador y diluyen la tasa de error).
+  filter/probes:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.route"] != nil and IsMatch(attributes["http.route"], "${probe_routes_regex}")'
 %{ if business_semantics_enabled ~}
 
   # Semántica de negocio: el código HTTP no es fuente de verdad del resultado transaccional.

@@ -19,6 +19,12 @@ resource "helm_release" "kube_prometheus_stack" {
     kubeProxy             = { enabled = false }
     nodeExporter          = { enabled = false }
 
+    # Costo del propio stack de observabilidad: cientos de reglas y scrapes que no usa la plataforma
+    defaultRules  = { create = var.cluster_monitoring_enabled }
+    kubeApiServer = { enabled = var.cluster_monitoring_enabled }
+    kubelet       = { enabled = var.cluster_monitoring_enabled }
+    coreDns       = { enabled = var.cluster_monitoring_enabled }
+
     prometheus = {
       prometheusSpec = {
         retention = var.retention

@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [otel-gateway, java-autoinstrumentation]
+        module: [otel-gateway, java-autoinstrumentation, slo-burn-rate-alerts]
     steps:
       - uses: actions/checkout@v7
       - id: tfversion
@@ -58,3 +58,30 @@ jobs:
           terraform_version: ${{ steps.tfversion.outputs.version }}
       - working-directory: modules/${{ matrix.module }}
         run: terraform init -backend=false -input=false && terraform test
+
+  slo-rules:
+    name: Reglas SLO generadas · promtool
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: tfversion
+        run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ steps.tfversion.outputs.version }}
+          terraform_wrapper: false
+      - name: Renderizar y validar cada SLO en ambos perfiles
+        working-directory: modules/slo-burn-rate-alerts
+        run: |
+          terraform init -backend=false -input=false >/dev/null
+          mkdir -p /tmp/rules
+          for slo in ../../slo/*.yaml; do
+            for profile in prod poc; do
+              out="/tmp/rules/$(basename "$slo" .yaml)-$profile.json"
+              echo 'jsonencode({groups = [{name = "recording", rules = local.recording_rules}, {name = "alerts", rules = local.alert_rules}]})' \
+                | terraform console -var "slo_file=$slo" -var namespace=ci -var "profile=$profile" \
+                | python3 -c "import sys, json; print(json.loads(sys.stdin.read()))" > "$out"
+            done
+          done
+          # El glob se expande dentro del contenedor, no en el runner
+          docker run --rm --entrypoint sh -v /tmp/rules:/r:ro prom/prometheus:v3.13.4 -c 'promtool check rules /r/*.json'

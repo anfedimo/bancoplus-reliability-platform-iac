@@ -11,3 +11,12 @@ module "pagos" {
     fraud-api   = { image = "bancoplus/payments-qr:1.0.0" }
   }
 }
+
+# SLO como código: reglas, alertas multiventana y dashboard de Error Budget
+module "pagos_slo" {
+  source = "../../../modules/slo-burn-rate-alerts"
+
+  slo_file  = "${path.module}/../../../slo/payments-qr.yaml"
+  namespace = module.pagos.namespace
+  profile   = "poc"
+}

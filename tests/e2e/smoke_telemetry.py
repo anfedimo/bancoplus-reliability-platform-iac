@@ -81,7 +81,7 @@ def gate_dual_shipping():
 
 
 def gate_red_metrics():
-    rows = prom(f'sum by (business_outcome) (traces_span_metrics_calls_total{{namespace="{NS}",service_name="payments-qr",span_name="ProcessQrPayment"}})')
+    rows = prom(f'sum by (business_outcome) (traces_span_metrics_calls_total{{namespace="{NS}",service_name="payments-qr",span_kind="SPAN_KIND_SERVER"}})')
     outcomes = {r["metric"].get("business_outcome", ""): float(r["value"][1]) for r in rows}
     ok = {"approved", "declined"} <= outcomes.keys()
     log("L10-003", ok, " ".join(f"{k}={v:,.0f}" for k, v in sorted(outcomes.items())) or "sin métricas RED")
