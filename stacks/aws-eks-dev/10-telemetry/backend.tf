@@ -1,0 +1,8 @@
+# bucket y region vía -backend-config=../backend.hcl (configuración parcial)
+terraform {
+  backend "s3" {
+    key          = "reliability-platform/aws-eks-dev/10-telemetry.tfstate"
+    use_lockfile = true
+    encrypt      = true
+  }
+}

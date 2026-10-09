@@ -24,7 +24,7 @@ jobs:
         run: terraform fmt -check -recursive
       - name: terraform validate
         run: |
-          for dir in modules/*/ stacks/local-minikube/*/; do
+          for dir in modules/*/ stacks/*/*/; do
             [ -n "$(ls "$dir"*.tf 2>/dev/null)" ] || continue
             echo "::group::$dir"
             terraform -chdir="$dir" init -backend=false -input=false >/dev/null

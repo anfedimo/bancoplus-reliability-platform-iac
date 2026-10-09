@@ -44,6 +44,11 @@ locals {
     )
   ])
 
+  rule_groups = [
+    { name = "slo:${local.service}:recording", interval = "30s", rules = local.recording_rules },
+    { name = "slo:${local.service}:alerts", rules = local.alert_rules },
+  ]
+
   alert_rules = flatten([
     for name, sli in local.slis : [
       for burn in [
@@ -71,6 +76,8 @@ locals {
 }
 
 resource "kubernetes_manifest" "rules" {
+  count = var.prometheus_rule_enabled ? 1 : 0
+
   manifest = {
     apiVersion = "monitoring.coreos.com/v1"
     kind       = "PrometheusRule"
@@ -79,11 +86,6 @@ resource "kubernetes_manifest" "rules" {
       namespace = var.namespace
       labels    = { team = local.owner, "app.kubernetes.io/managed-by" = "reliability-platform" }
     }
-    spec = {
-      groups = [
-        { name = "slo:${local.service}:recording", interval = "30s", rules = local.recording_rules },
-        { name = "slo:${local.service}:alerts", rules = local.alert_rules },
-      ]
-    }
+    spec = { groups = local.rule_groups }
   }
 }

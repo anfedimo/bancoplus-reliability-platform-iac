@@ -39,6 +39,12 @@ variable "metrics" {
   default = {}
 }
 
+variable "prometheus_rule_enabled" {
+  description = "Crea el PrometheusRule (Prometheus Operator en el clúster). false con motores gestionados (Amazon Managed Prometheus, Mimir): consumir el output rule_groups_yaml."
+  type        = bool
+  default     = true
+}
+
 variable "dashboard_enabled" {
   description = "Publica el dashboard de Error Budget (ConfigMap descubierto por el sidecar de Grafana)."
   type        = bool

@@ -95,3 +95,39 @@ make smoke-slo                     # smoke test del SLO: dispara SLOFastBurn con
 make status
 make cluster-down
 ```
+
+## Puesta en marcha local
+
+Secuencia completa desde cero hasta el dashboard de Error Budget en Grafana.
+
+```bash
+# 1. Preparación
+caffeinate -dims -t 10800 &                                   # Evita suspensión del equipo durante la sesión
+make cluster-up                                               # Crea clúster minikube con 6 CPU
+
+# 2. Plataforma (capas en orden)
+make plan-00-platform-base && make apply-00-platform-base     # Instala cert-manager y OpenTelemetry Operator
+make plan-10-telemetry && make apply-10-telemetry             # Despliega Gateway, agentes, Prometheus, Tempo, Grafana
+make app-image                                                # Construye imagen Spring Boot sin dependencias OTel
+make plan-20-onboarding && make apply-20-onboarding           # Integra vertical Pagos con su SLO
+
+# 3. Validación
+make smoke-onboarding                                         # Verifica trazas, PII enmascarada y Dual-Shipping
+make smoke-slo                                                # Genera tráfico y dispara alerta SLOFastBurn
+
+# 4. Grafana
+terraform -chdir=stacks/local-minikube/10-telemetry output -raw grafana_admin_password | pbcopy   # Copia contraseña admin al portapapeles
+kubectl --context bancoplus -n observability port-forward svc/kube-prometheus-stack-grafana 3000:80   # Expone Grafana en localhost:3000
+open http://localhost:3000/d/slo-payments-qr                  # Abre dashboard de Error Budget
+open http://localhost:3000/explore                            # Explora trazas en Tempo y APM legado
+
+# 5. Cierre
+make cluster-down                                             # Elimina el clúster y sus datos
+pkill caffeinate                                              # Restaura la suspensión normal del equipo
+```
+
+**Login de Grafana:** usuario `admin` y la contraseña copiada en el paso 4 (Cmd+V). No es `admin`:
+la capa 10 la genera con `random_password` para que ningún secreto resida en el repositorio, y cambia
+cada vez que el clúster se recrea. Los comandos se ejecutan desde la raíz del repositorio.
+El port-forward ocupa la terminal: ejecutar `open` desde otra.
+`make smoke-slo` justo antes de abrir el dashboard garantiza datos en todos los paneles.
