@@ -75,6 +75,17 @@ jobs:
         with:
           terraform_version: ${{ steps.tfversion.outputs.version }}
           terraform_wrapper: false
+      - name: promtool (binario oficial verificado por SHA-256, sin depender de un registro de imágenes)
+        env:
+          PROMETHEUS_VERSION: "3.13.4"
+        run: |
+          set -euo pipefail
+          base="https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}"
+          file="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          curl -sSfLO "$base/$file"
+          curl -sSfL "$base/sha256sums.txt" | grep " $file\$" | sha256sum -c -
+          tar xzf "$file" --strip-components=1 -C /usr/local/bin "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          promtool --version | head -1
       - name: Renderizar y validar cada SLO en ambos perfiles
         working-directory: modules/slo-burn-rate-alerts
         run: |
@@ -88,5 +99,4 @@ jobs:
                 | python3 -c "import sys, json; print(json.loads(sys.stdin.read()))" > "$out"
             done
           done
-          # El glob se expande dentro del contenedor, no en el runner
-          docker run --rm --entrypoint sh -v /tmp/rules:/r:ro prom/prometheus:v3.13.4 -c 'promtool check rules /r/*.json'
+          promtool check rules /tmp/rules/*.json
