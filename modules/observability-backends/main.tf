@@ -116,6 +116,11 @@ resource "helm_release" "tempo" {
           }
         }
       }
+      # Servidor MCP de solo lectura (/api/mcp): agentes de RCA consultan trazas con TraceQL.
+      # Solo ClusterIP: no se expone fuera del clúster.
+      queryFrontend = {
+        mcp_server = { enabled = var.tempo_mcp_server_enabled }
+      }
       resources = {
         requests = { cpu = "100m", memory = "256Mi" }
         limits   = { memory = "1Gi" }
