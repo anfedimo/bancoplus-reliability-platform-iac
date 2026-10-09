@@ -93,6 +93,11 @@ resource "helm_release" "gateway" {
     }
 
     podDisruptionBudget = { enabled = var.replicas > 1, minAvailable = 1 }
+
+    serviceMonitor = {
+      enabled          = var.service_monitor_enabled
+      metricsEndpoints = [{ port = "metrics" }, { port = "red-metrics" }]
+    }
   })]
 }
 
