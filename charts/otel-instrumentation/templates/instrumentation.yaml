@@ -15,7 +15,7 @@ spec:
   resource:
     addK8sUIDAttributes: true
     {{- with .Values.resourceAttributes }}
-    attributes:
+    resourceAttributes:
       {{- toYaml . | nindent 6 }}
     {{- end }}
   java:

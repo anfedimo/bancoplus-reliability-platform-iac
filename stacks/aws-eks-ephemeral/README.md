@@ -11,7 +11,22 @@ con los mismos módulos que `local-minikube`.
 | `cluster` | VPC (2 subredes públicas, 2 privadas, 1 NAT) · EKS (`terraform-aws-modules/eks`) · node group Graviton · add-on EBS CSI · ECR · AWS Budget | 15-20 min |
 | `00-platform-base` | StorageClass gp3 cifrada · cert-manager · OpenTelemetry Operator | 2 min |
 | `10-telemetry` | Gateway ×2 · agentes de nodo · Prometheus, Tempo, stand-in APM · **Grafana en NLB con allowlist y persistencia EBS** | 5 min |
-| `20-onboarding` | Vertical de Pagos (imagen desde ECR) · SLO como código | 3 min |
+| `ci-identity` | Proveedor OIDC de GitHub y rol de CI con push a ECR (sin llaves de larga duración) | 1 min |
+| `gitops-bootstrap` | Argo CD + aplicación raíz: instrumentación, SLO y payments-qr se reconcilian desde `bancoplus-platform-gitops` | 3 min |
+| `20-onboarding` | Reemplazada por `gitops-bootstrap` (migración incremental a GitOps) | — |
+
+## Acceso
+
+Todas las consolas están en NLB `internet-facing` restringidos a `admin_cidrs`.
+
+| Consola | URL | Credenciales |
+|---|---|---|
+| Grafana | `terraform -chdir=10-telemetry output -raw grafana_url` | `admin` · `output -raw grafana_admin_password` |
+| Argo CD | `terraform -chdir=gitops-bootstrap output -raw argocd_url` | `admin` · secret `argocd-initial-admin-secret` |
+| APM legado (stand-in) | `terraform -chdir=10-telemetry output -raw legacy_apm_url` | — |
+
+Prometheus, Tempo y Alertmanager se consultan desde Grafana (datasources aprovisionados): un solo
+punto de acceso público en lugar de uno por componente.
 
 ## Guardrails
 

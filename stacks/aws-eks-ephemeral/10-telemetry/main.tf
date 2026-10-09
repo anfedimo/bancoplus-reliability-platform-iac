@@ -36,6 +36,16 @@ module "backends" {
   }
 
   persistence = { enabled = true, storage_class = "gp3" }
+
+  # Consola del APM legado (stand-in de Dynatrace): evidencia visual del Dual-Shipping
+  legacy_apm_service = {
+    type          = "LoadBalancer"
+    source_ranges = var.admin_cidrs
+    annotations = {
+      "service.beta.kubernetes.io/aws-load-balancer-type"                     = "nlb"
+      "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags" = join(",", [for k, v in local.ephemeral_tags : "${k}=${v}"])
+    }
+  }
 }
 
 module "otel_gateway" {
@@ -72,6 +82,15 @@ module "otel_node_agent" {
 data "kubernetes_service_v1" "grafana" {
   metadata {
     name      = module.backends.grafana_service_name
+    namespace = kubernetes_namespace_v1.observability.metadata[0].name
+  }
+
+  depends_on = [module.backends]
+}
+
+data "kubernetes_service_v1" "legacy_apm" {
+  metadata {
+    name      = module.backends.legacy_apm_service_name
     namespace = kubernetes_namespace_v1.observability.metadata[0].name
   }
 

@@ -88,3 +88,9 @@ variable "budget_limit_usd" {
   type        = number
   default     = 30
 }
+
+variable "cost_allocation_tags_enabled" {
+  description = "Activa los tags del entorno como cost allocation tags (Cost Explorer). AWS los publica hasta 24 h después del primer uso: activar después de ese plazo."
+  type        = bool
+  default     = false
+}

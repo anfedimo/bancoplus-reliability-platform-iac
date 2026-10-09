@@ -87,14 +87,11 @@ resource "helm_release" "kube_prometheus_stack" {
           access   = "proxy"
           jsonData = { serviceMap = { datasourceUid = "prometheus" }, nodeGraph = { enabled = true } }
         },
-        {
-          name   = "APM legado (stand-in)"
-          type   = "jaeger"
-          uid    = "apm-legacy"
-          url    = "http://${local.legacy_apm_name}.${var.namespace}.svc.cluster.local:16686"
-          access = "proxy"
-        },
+        # El APM legado se consulta en su propia consola: el plugin Jaeger de Grafana requiere la API v1,
+        # eliminada en Jaeger 2.x
       ]
+      # Retira el datasource de versiones anteriores (persistido en la base de Grafana con el volumen EBS)
+      deleteDatasources = [{ name = "APM legado (stand-in)", orgId = 1 }]
     }
   })]
 }
@@ -184,12 +181,15 @@ resource "kubernetes_deployment_v1" "legacy_apm" {
 
 resource "kubernetes_service_v1" "legacy_apm" {
   metadata {
-    name      = local.legacy_apm_name
-    namespace = var.namespace
+    name        = local.legacy_apm_name
+    namespace   = var.namespace
+    annotations = var.legacy_apm_service.annotations
   }
 
   spec {
-    selector = { "app.kubernetes.io/name" = local.legacy_apm_name }
+    type                        = var.legacy_apm_service.type
+    load_balancer_source_ranges = var.legacy_apm_service.source_ranges
+    selector                    = { "app.kubernetes.io/name" = local.legacy_apm_name }
 
     port {
       name        = "otlp-http"
