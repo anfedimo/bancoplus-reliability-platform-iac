@@ -1,9 +1,13 @@
-.PHONY: cluster-up cluster-down fmt validate test plan-% apply-% destroy-% status smoke smoke-onboarding smoke-slo app-image
+.PHONY: cluster-up cluster-down fmt validate test plan-% apply-% destroy-% status smoke smoke-onboarding smoke-slo app-image ephemeral-up ephemeral-down
 
 PROFILE ?= bancoplus
 GENERATOR_SRC ?= ../sre-finops-otel-collector/traffic-generator
-STACKS  := stacks/local-minikube
-MODULES := otel-gateway java-autoinstrumentation slo-burn-rate-alerts
+ENV     ?= local-minikube
+STACKS  := stacks/$(ENV)
+# Backend remoto (aws-eks-*): configuración parcial y variables comunes del entorno
+BACKEND_CFG := $(if $(wildcard $(STACKS)/backend.hcl),-backend-config=../backend.hcl,)
+VAR_FILE    := $(if $(wildcard $(STACKS)/terraform.tfvars),-var-file=../terraform.tfvars,)
+MODULES := otel-gateway java-autoinstrumentation slo-burn-rate-alerts observability-backends
 
 cluster-up:          ## Clúster local (fuera de Terraform: ciclo de vida independiente)
 	minikube start -p $(PROFILE) --driver=docker --cpus=6 --memory=6g --addons=metrics-server
@@ -14,8 +18,8 @@ cluster-down:
 fmt:
 	terraform fmt -recursive
 
-validate:            ## validate de todos los módulos y stacks
-	@for d in modules/*/ $(STACKS)/*/; do \
+validate:            ## validate de todos los módulos y stacks (todos los entornos)
+	@for d in modules/*/ stacks/*/*/; do \
 	  ls $$d*.tf >/dev/null 2>&1 || continue; \
 	  terraform -chdir=$$d init -backend=false -input=false >/dev/null && terraform -chdir=$$d validate -no-color || exit 1; \
 	done
@@ -25,15 +29,15 @@ test:                ## terraform test de los módulos
 	  terraform -chdir=modules/$$m init -backend=false -input=false >/dev/null && terraform -chdir=modules/$$m test || exit 1; \
 	done
 
-plan-%:              ## make plan-00-platform-base
-	terraform -chdir=$(STACKS)/$* init -input=false >/dev/null
-	terraform -chdir=$(STACKS)/$* plan -out=tfplan
+plan-%:              ## make plan-00-platform-base [ENV=aws-eks-dev]
+	terraform -chdir=$(STACKS)/$* init -input=false $(BACKEND_CFG) >/dev/null
+	terraform -chdir=$(STACKS)/$* plan $(VAR_FILE) -out=tfplan
 
 apply-%:             ## make apply-00-platform-base (aplica el último plan)
 	terraform -chdir=$(STACKS)/$* apply tfplan && rm -f $(STACKS)/$*/tfplan
 
 destroy-%:
-	terraform -chdir=$(STACKS)/$* destroy
+	terraform -chdir=$(STACKS)/$* destroy $(VAR_FILE)
 
 smoke:               ## Smoke test de la capa 10: tráfico sintético → agente → Gateway → backends
 	minikube -p $(PROFILE) image build -t bancoplus/traffic-generator:poc $(GENERATOR_SRC)
@@ -62,6 +66,12 @@ smoke-slo:           ## Smoke test del SLO: dispara SLOFastBurn con tráfico rea
 	kubectl --context $(PROFILE) -n smoke-test delete job smoke-slo --ignore-not-found
 	kubectl --context $(PROFILE) apply -f tests/e2e/smoke-slo-job.yaml
 	tests/e2e/run-job.sh $(PROFILE) smoke-test smoke-slo 600
+
+ephemeral-up:        ## Entorno efímero en EKS (TTL 72 h): cluster → imágenes → 00 → 10 → 20 → smoke
+	scripts/up-ephemeral.sh
+
+ephemeral-down:      ## Destruye el entorno efímero y verifica costo residual cero
+	scripts/teardown-ephemeral.sh
 
 status:
 	kubectl --context $(PROFILE) get pods -A -l 'app.kubernetes.io/part-of in (opentelemetry,reliability-platform)' 2>/dev/null; \

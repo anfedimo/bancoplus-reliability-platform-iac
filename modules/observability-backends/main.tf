@@ -1,5 +1,6 @@
 locals {
   legacy_apm_name = "apm-legacy-standin"
+  pvc_class       = var.persistence.storage_class == "" ? null : var.persistence.storage_class
 }
 
 resource "helm_release" "kube_prometheus_stack" {
@@ -36,6 +37,15 @@ resource "helm_release" "kube_prometheus_stack" {
           requests = { cpu = "200m", memory = "512Mi" }
           limits   = { memory = "1536Mi" }
         }
+        storageSpec = var.persistence.enabled ? {
+          volumeClaimTemplate = {
+            spec = {
+              storageClassName = local.pvc_class
+              accessModes      = ["ReadWriteOnce"]
+              resources        = { requests = { storage = var.persistence.prometheus_size } }
+            }
+          }
+        } : {}
       }
     }
 
@@ -47,6 +57,27 @@ resource "helm_release" "kube_prometheus_stack" {
 
     grafana = {
       adminPassword = var.grafana_admin_password
+
+      service = {
+        type                     = var.grafana_service.type
+        annotations              = var.grafana_service.annotations
+        loadBalancerSourceRanges = var.grafana_service.source_ranges
+      }
+
+      persistence = {
+        enabled          = var.persistence.enabled
+        type             = "pvc"
+        storageClassName = local.pvc_class
+        accessModes      = ["ReadWriteOnce"]
+        size             = var.persistence.grafana_size
+      }
+      # Volumen RWO: RollingUpdate dejaría el pod nuevo esperando el volumen del anterior
+      deploymentStrategy = { type = var.persistence.enabled ? "Recreate" : "RollingUpdate" }
+
+      resources = {
+        requests = { cpu = "100m", memory = "256Mi" }
+        limits   = { memory = "512Mi" }
+      }
       additionalDataSources = [
         {
           name     = "Tempo (backend OTel)"
@@ -92,6 +123,11 @@ resource "helm_release" "tempo" {
         requests = { cpu = "100m", memory = "256Mi" }
         limits   = { memory = "1Gi" }
       }
+    }
+    persistence = {
+      enabled          = var.persistence.enabled
+      storageClassName = local.pvc_class
+      size             = var.persistence.tempo_size
     }
   })]
 }

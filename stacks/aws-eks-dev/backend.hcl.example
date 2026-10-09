@@ -1,0 +1,4 @@
+# Configuración parcial del backend S3, compartida por las tres capas (la key la define cada capa).
+#   cp backend.hcl.example backend.hcl && make plan-00-platform-base ENV=aws-eks-dev
+bucket = "bancoplus-tfstate-<ACCOUNT_ID>"
+region = "us-east-1"

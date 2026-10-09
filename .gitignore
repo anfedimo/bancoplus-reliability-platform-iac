@@ -12,3 +12,6 @@ modules/**/.terraform.lock.hcl
 __pycache__/
 # Artefactos de build de las aplicaciones de referencia
 sample-apps/**/target/
+# Configuración real de entornos remotos (se versionan solo los .example)
+stacks/*/backend.hcl
+stacks/*/terraform.tfvars

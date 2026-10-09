@@ -74,3 +74,16 @@ run "rechaza_perfil_inexistente" {
 
   expect_failures = [var.profile]
 }
+
+run "motor_gestionado_sin_crd" {
+  command = plan
+
+  variables {
+    prometheus_rule_enabled = false
+  }
+
+  assert {
+    condition     = length(kubernetes_manifest.rules) == 0 && strcontains(output.rule_groups_yaml, "SLOFastBurn")
+    error_message = "Sin CRD, las reglas deben exportarse en formato estándar para el motor gestionado."
+  }
+}

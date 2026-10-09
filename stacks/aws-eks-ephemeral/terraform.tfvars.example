@@ -1,0 +1,11 @@
+# Variables comunes a todas las capas del entorno efímero. cp terraform.tfvars.example terraform.tfvars
+aws_profile    = "bancoplus-poc"
+aws_account_id = "<ACCOUNT_ID>"
+region         = "us-east-1"
+cluster_name   = "bancoplus-poc"
+
+# IPs autorizadas para la API de EKS y para Grafana (CIDR /32). Obtener: curl -s https://checkip.amazonaws.com
+admin_cidrs = ["<TU_IP>/32"]
+
+# Alertas de AWS Budgets
+budget_alert_email = "<CORREO>"

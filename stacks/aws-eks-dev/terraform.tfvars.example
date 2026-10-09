@@ -1,0 +1,4 @@
+# Variables comunes a las tres capas. cp terraform.tfvars.example terraform.tfvars
+aws_account_id = "<ACCOUNT_ID>"
+region         = "us-east-1"
+cluster_name   = "bancoplus-dev"

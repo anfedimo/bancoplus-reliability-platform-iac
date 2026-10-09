@@ -33,6 +33,38 @@ variable "cluster_monitoring_enabled" {
   default     = false
 }
 
+variable "grafana_service" {
+  description = "Exposición de Grafana. LoadBalancer + source_ranges publica Grafana con allowlist (entornos cloud)."
+  type = object({
+    type          = optional(string, "ClusterIP")
+    annotations   = optional(map(string), {})
+    source_ranges = optional(list(string), [])
+  })
+  default = {}
+
+  validation {
+    condition     = !contains(var.grafana_service.source_ranges, "0.0.0.0/0")
+    error_message = "Grafana no puede exponerse a 0.0.0.0/0: usar una allowlist."
+  }
+
+  validation {
+    condition     = var.grafana_service.type != "LoadBalancer" || length(var.grafana_service.source_ranges) > 0
+    error_message = "Un LoadBalancer de Grafana requiere source_ranges (allowlist)."
+  }
+}
+
+variable "persistence" {
+  description = "Volúmenes persistentes para Grafana, Prometheus y Tempo (sobreviven reinicios y reprogramación de pods)."
+  type = object({
+    enabled         = optional(bool, false)
+    storage_class   = optional(string, "")
+    grafana_size    = optional(string, "5Gi")
+    prometheus_size = optional(string, "20Gi")
+    tempo_size      = optional(string, "10Gi")
+  })
+  default = {}
+}
+
 variable "retention" {
   description = "Retención de métricas y trazas en el entorno local."
   type        = string

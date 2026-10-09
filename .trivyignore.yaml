@@ -1,0 +1,15 @@
+# Excepciones de trivy: riesgo aceptado, justificado y con fecha de vencimiento.
+# Al vencer, el control vuelve a bloquear el pipeline y la excepción debe re-evaluarse.
+misconfigurations:
+  - id: AWS-0040
+    statement: >-
+      Endpoint público de EKS en stacks/aws-eks-ephemeral (TTL 72 h): restringido a admin_cidrs /32;
+      la variable rechaza 0.0.0.0/0. Un endpoint privado requiere VPN o bastión, fuera del alcance de
+      un entorno efímero. Producción (aws-eks-dev) usa la red corporativa.
+    expired_at: 2026-12-31
+  - id: AWS-0104
+    statement: >-
+      Egress abierto del security group de nodos (default de terraform-aws-modules/eks): requerido para
+      descargar imágenes (ECR, Docker Hub) y llamar APIs de AWS vía NAT. Restringirlo exige VPC endpoints
+      y proxy de salida, fuera del alcance de un entorno efímero de 72 h.
+    expired_at: 2026-12-31
