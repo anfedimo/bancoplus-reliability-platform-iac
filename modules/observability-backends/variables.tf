@@ -15,6 +15,12 @@ variable "tempo_chart_version" {
   default     = "1.24.4"
 }
 
+variable "tempo_mcp_server_enabled" {
+  description = "Habilita el servidor MCP de Tempo (solo lectura, ClusterIP) para agentes de RCA."
+  type        = bool
+  default     = true
+}
+
 variable "legacy_apm_standin_image" {
   description = "Imagen del stand-in del APM legado (recibe OTLP/HTTP como lo hace Dynatrace)."
   type        = string

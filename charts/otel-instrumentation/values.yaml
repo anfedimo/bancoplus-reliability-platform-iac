@@ -19,5 +19,6 @@ java:
   extensions: []
   # Señales habilitadas en el pipeline de la plataforma
   metricsExporter: none
-  logsExporter: none
+  # Logs al Gateway solo para Log-to-Metrics: se cuentan en el Edge y no se almacenan
+  logsExporter: otlp
   extraEnv: []
