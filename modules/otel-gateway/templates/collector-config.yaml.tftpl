@@ -1,0 +1,161 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+%{ if business_semantics_enabled ~}
+
+  # Semántica de negocio: el código HTTP no es fuente de verdad del resultado transaccional.
+  # Contrato X-Business-* capturado por el agente Java. Corre antes de span_metrics.
+  transform/business-semantics:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["business.operation"], attributes["http.response.header.x-business-operation"][0]) where attributes["http.response.header.x-business-operation"] != nil
+          - set(attributes["business.outcome"], attributes["http.response.header.x-business-outcome"][0]) where attributes["http.response.header.x-business-outcome"] != nil
+          - set(attributes["business.reason"], attributes["http.response.header.x-business-reason"][0]) where attributes["http.response.header.x-business-reason"] != nil
+          - delete_matching_keys(attributes, "^http\\.response\\.header\\.x-business-.*")
+          - set(attributes["business.status_reclassified"], "declined_as_5xx") where attributes["business.outcome"] == "declined" and status.code == STATUS_CODE_ERROR
+          - set(status.code, STATUS_CODE_UNSET) where attributes["business.status_reclassified"] == "declined_as_5xx"
+          - set(attributes["business.status_reclassified"], "failed_as_2xx") where attributes["business.outcome"] == "failed" and status.code != STATUS_CODE_ERROR
+          - set(status.code, STATUS_CODE_ERROR) where attributes["business.status_reclassified"] == "failed_as_2xx"
+          - set(status.message, Concat(["business.reason=", attributes["business.reason"]], "")) where attributes["business.status_reclassified"] == "failed_as_2xx"
+          - set(attributes["business.amount_band"], "bajo") where attributes["payment.amount"] != nil and attributes["payment.amount"] < 1000000
+          - set(attributes["business.amount_band"], "medio") where attributes["payment.amount"] != nil and attributes["payment.amount"] >= 1000000 and attributes["payment.amount"] < ${high_value_amount}
+          - set(attributes["business.amount_band"], "alto") where attributes["payment.amount"] != nil and attributes["payment.amount"] >= ${high_value_amount}
+%{ endif ~}
+
+  # Enmascaramiento PII (PCI-DSS / SFC CE 007/2018 / Ley 1581/2012) aplicado en Edge.
+  transform/pii:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["account.number"], SHA256(Concat([attributes["account.number"], "$${env:PII_HASH_SALT}"], ""))) where attributes["account.number"] != nil
+          - set(attributes["customer.document"], SHA256(Concat([attributes["customer.document"], "$${env:PII_HASH_SALT}"], ""))) where attributes["customer.document"] != nil
+          - delete_matching_keys(attributes, "(?i)(^|[._])(cvv|cvc|pin|password|passwd|secret|token|authorization)($|[._])")
+          - replace_all_patterns(attributes, "value", "\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?(\\d{4})\\b", "****-****-****-$$1")
+          - replace_all_patterns(attributes, "value", "\\b3[47]\\d{2}[ -]?\\d{6}[ -]?(\\d{5})\\b", "****-******-$$1")
+          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
+          - replace_all_patterns(attributes, "value", "\\b\\d{6,12}\\b", "[NUM_REDACTADO]")
+          - replace_pattern(name, "\\b\\d{6,19}\\b", "{id}")
+      - context: spanevent
+        statements:
+          - replace_all_patterns(attributes, "value", "\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?(\\d{4})\\b", "****-****-****-$$1")
+          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
+          - replace_all_patterns(attributes, "value", "\\b\\d{6,12}\\b", "[NUM_REDACTADO]")
+      - context: resource
+        statements:
+          - delete_matching_keys(attributes, "(?i).*(password|secret|token).*")
+
+  # FinOps: muestreo post-análisis sobre el estado normalizado.
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100000
+    expected_new_traces_per_sec: 1000
+    decision_cache:
+      sampled_cache_size: 100000
+    policies:
+      - name: retener-errores
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: retener-lentas
+        type: latency
+        latency:
+          threshold_ms: ${latency_threshold_ms}
+      - name: retener-alto-valor
+        type: numeric_attribute
+        numeric_attribute:
+          key: payment.amount
+          min_value: ${high_value_amount}
+          max_value: 9999999999999
+      - name: retener-anomalias
+        type: string_attribute
+        string_attribute:
+          key: payment.anomaly
+          values: ["true"]
+      - name: linea-base-exitosas
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${baseline_percentage}
+
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+
+connectors:
+  # Fuente de verdad del Error Budget: 100% del tráfico, antes del muestreo
+  span_metrics:
+    histogram:
+      explicit:
+        buckets: [50ms, 100ms, 250ms, 500ms, 800ms, 1s, 2s, 5s]
+    dimensions: ${jsonencode([for d in span_metrics_dimensions : { name = d }])}
+    metrics_flush_interval: 15s
+
+  forward/sampling: {}
+
+exporters:
+%{ if legacy_apm_enabled ~}
+  # Dual-Shipping durante la ventana de transición. Cutover (F3) = legacy_apm.enabled = false
+  otlp_http/dynatrace:
+    endpoint: ${legacy_apm_endpoint}
+    headers:
+      Authorization: "Api-Token $${env:DT_API_TOKEN}"
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+
+%{ endif ~}
+  otlp_grpc/backend-otel:
+    endpoint: ${otel_backend_endpoint}
+    tls:
+      insecure: ${otel_backend_insecure}
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces/ingest:
+      receivers: [otlp]
+      processors: ${jsonencode(ingest_processors)}
+      exporters: [span_metrics, forward/sampling]
+    traces/export:
+      receivers: [forward/sampling]
+      processors: [tail_sampling, batch]
+      exporters: ${jsonencode(trace_exporters)}
+    metrics/red:
+      receivers: [span_metrics]
+      processors: [batch]
+      exporters: [prometheus]
