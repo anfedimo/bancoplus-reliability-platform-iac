@@ -1,6 +1,6 @@
 locals {
   ingest_processors = concat(
-    ["memory_limiter"],
+    ["memory_limiter", "filter/probes"],
     var.business_semantics_enabled ? ["transform/business-semantics"] : [],
     ["transform/pii"],
   )
@@ -20,6 +20,7 @@ locals {
     latency_threshold_ms       = var.sampling.latency_threshold_ms
     high_value_amount          = var.sampling.high_value_amount
     span_metrics_dimensions    = var.span_metrics_dimensions
+    probe_routes_regex         = var.probe_routes_regex
     ingest_processors          = local.ingest_processors
     trace_exporters            = local.trace_exporters
   })

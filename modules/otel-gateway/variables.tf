@@ -128,6 +128,17 @@ variable "business_semantics_enabled" {
   default     = true
 }
 
+variable "probe_routes_regex" {
+  description = "Rutas de health checks que se descartan antes de las métricas RED y del muestreo (regex RE2 sobre http.route)."
+  type        = string
+  default     = "^/(actuator/health|healthz|readyz|livez|health)"
+
+  validation {
+    condition     = can(regex(var.probe_routes_regex, "/actuator/health/readiness"))
+    error_message = "probe_routes_regex debe ser una regex válida."
+  }
+}
+
 variable "service_monitor_enabled" {
   description = "Crea un ServiceMonitor (requiere CRDs de Prometheus Operator). Scrape por pod: con N réplicas, un scrape al Service perdería métricas."
   type        = bool

@@ -62,6 +62,7 @@ module "pagos" {
 | Secretos como variables sensibles y Secret de Kubernetes | Los secretos nunca residen en archivos versionados; en AWS se resuelven desde Secrets Manager. |
 | Restricción de contexto por stack | Cada stack valida el contexto de Kubernetes de destino e impide aplicar configuración de un entorno sobre otro. |
 | Versión única de Terraform (`.terraform-version`) | Planes reproducibles e idénticos entre estaciones de trabajo y CI. |
+| SLO como código con alertas por burn rate | El SRE de la vertical declara objetivos; la plataforma genera PromQL, alertas multiventana y dashboard. Sustituye los umbrales estáticos de CPU y memoria. |
 | Contratos de módulo verificados con `terraform test` | Las entradas inválidas se rechazan antes del `plan`; los invariantes de seguridad (orden de PII, secretos por variable de entorno) se prueban en cada PR. |
 
 ## Ciclo de cambio
@@ -73,11 +74,12 @@ Todo cambio entra por Pull Request y pasa los controles de `.github/workflows/te
 | `terraform fmt` y `terraform validate` | Código homogéneo y sintácticamente válido en todos los módulos y stacks |
 | `tflint` (preset recommended) | Variables documentadas, convenciones de nombres, sin código muerto |
 | `trivy config` (HIGH/CRITICAL bloqueante) | Sin configuraciones inseguras en IaC ni en manifiestos |
-| `terraform test` | Contratos de módulo: Dual-Shipping, cutover, orden de PII, validación de entradas |
+| `terraform test` | Contratos de módulo: Dual-Shipping, cutover, orden de PII, validación de entradas, alertas multiventana |
+| `promtool` sobre reglas generadas | Todo SLO de `slo/*.yaml` produce PromQL válido en los perfiles prod y poc |
 
 ## Requisitos
 
-Terraform según `.terraform-version` (tfenv), minikube ≥ 1.38, Helm ≥ 3, Docker con 4 CPU y 6 GB disponibles.
+Terraform según `.terraform-version` (tfenv), minikube ≥ 1.38, Helm ≥ 3, Docker con 6 CPU y 6 GB disponibles.
 
 ## Operación
 
@@ -89,6 +91,7 @@ make apply-<capa>                  # aplica el plan revisado
 make smoke                         # smoke test de la capa de telemetría
 make app-image                     # imagen de la aplicación de referencia
 make smoke-onboarding              # smoke test de onboarding (Job dentro del clúster)
+make smoke-slo                     # smoke test del SLO: dispara SLOFastBurn con tráfico real
 make status
 make cluster-down
 ```

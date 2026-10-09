@@ -6,9 +6,11 @@ service: payments-qr
 journey: pago-qr
 owner: tribu-pagos
 
+# Span de servidor de la transacción (métricas RED de span_metrics, después de la normalización de negocio)
 selector:
   service_name: payments-qr
-  span_name: ProcessQrPayment
+  span_kind: SPAN_KIND_SERVER
+  span_name: POST /payments/qr
 
 slis:
   availability:

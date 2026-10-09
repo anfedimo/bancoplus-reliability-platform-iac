@@ -27,6 +27,12 @@ variable "grafana_admin_password" {
   sensitive   = true
 }
 
+variable "cluster_monitoring_enabled" {
+  description = "Reglas y scrapes del mixin de Kubernetes (API server, kubelet, CoreDNS). Fuera del alcance de la plataforma de telemetría; en EKS lo cubre el monitoreo del clúster."
+  type        = bool
+  default     = false
+}
+
 variable "retention" {
   description = "Retención de métricas y trazas en el entorno local."
   type        = string
