@@ -2,12 +2,15 @@
 
 PROFILE ?= bancoplus
 GENERATOR_SRC ?= ../sre-finops-otel-collector/traffic-generator
+APP_SRC       ?= ../bancoplus-payments-qr
+# Smoke tests de la plataforma en ejecución: viven en el repositorio GitOps
+TESTS         ?= ../bancoplus-platform-gitops/tests
 ENV     ?= local-minikube
 STACKS  := stacks/$(ENV)
 # Backend remoto (aws-eks-*): configuración parcial y variables comunes del entorno
 BACKEND_CFG := $(if $(wildcard $(STACKS)/backend.hcl),-backend-config=../backend.hcl,)
 VAR_FILE    := $(if $(wildcard $(STACKS)/terraform.tfvars),-var-file=../terraform.tfvars,)
-MODULES := otel-gateway java-autoinstrumentation slo-burn-rate-alerts observability-backends
+MODULES := otel-gateway java-autoinstrumentation slo-burn-rate-alerts observability-backends github-ci-ecr-role
 
 cluster-up:          ## Clúster local (fuera de Terraform: ciclo de vida independiente)
 	minikube start -p $(PROFILE) --driver=docker --cpus=6 --memory=6g --addons=metrics-server
@@ -41,31 +44,31 @@ destroy-%:
 
 smoke:               ## Smoke test de la capa 10: tráfico sintético → agente → Gateway → backends
 	minikube -p $(PROFILE) image build -t bancoplus/traffic-generator:poc $(GENERATOR_SRC)
-	kubectl --context $(PROFILE) apply -f tests/e2e/traffic-generator.yaml
+	kubectl --context $(PROFILE) apply -f $(TESTS)/traffic-generator.yaml
 	kubectl --context $(PROFILE) -n smoke-test rollout status deploy/traffic-generator --timeout=120s
 	@echo "esperando flush de span_metrics (15s) y scrape de Prometheus (30s)…" && sleep 60
-	KUBE_CONTEXT=$(PROFILE) python3 tests/e2e/smoke_telemetry.py
+	KUBE_CONTEXT=$(PROFILE) python3 $(TESTS)/smoke_telemetry.py
 
 app-image:           ## Imagen de la aplicación de referencia (sin dependencias OTel)
-	minikube -p $(PROFILE) image build -t bancoplus/payments-qr:1.0.0 sample-apps/payments-qr-java
+	minikube -p $(PROFILE) image build -t bancoplus/payments-qr:1.0.0 $(APP_SRC)
 
 smoke-onboarding:    ## Smoke test de la capa 20 como Job dentro del clúster
 	kubectl --context $(PROFILE) create namespace smoke-test --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
-	kubectl --context $(PROFILE) -n smoke-test create configmap smoke-onboarding --from-file=tests/e2e/smoke_onboarding.py --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
+	kubectl --context $(PROFILE) -n smoke-test create configmap smoke-onboarding --from-file=$(TESTS)/smoke_onboarding.py --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
 	kubectl --context $(PROFILE) -n smoke-test create secret generic grafana-admin \
 	  --from-literal=password="$$(terraform -chdir=$(STACKS)/10-telemetry output -raw grafana_admin_password)" --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
 	kubectl --context $(PROFILE) -n smoke-test delete job smoke-onboarding --ignore-not-found
-	kubectl --context $(PROFILE) apply -f tests/e2e/smoke-onboarding-job.yaml
-	tests/e2e/run-job.sh $(PROFILE) smoke-test smoke-onboarding 300
+	kubectl --context $(PROFILE) apply -f $(TESTS)/smoke-onboarding-job.yaml
+	$(TESTS)/run-job.sh $(PROFILE) smoke-test smoke-onboarding 300
 
 smoke-slo:           ## Smoke test del SLO: dispara SLOFastBurn con tráfico real (≈6 min)
 	kubectl --context $(PROFILE) create namespace smoke-test --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
-	kubectl --context $(PROFILE) -n smoke-test create configmap smoke-slo --from-file=tests/e2e/smoke_slo.py --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
+	kubectl --context $(PROFILE) -n smoke-test create configmap smoke-slo --from-file=$(TESTS)/smoke_slo.py --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
 	kubectl --context $(PROFILE) -n smoke-test create secret generic grafana-admin \
 	  --from-literal=password="$$(terraform -chdir=$(STACKS)/10-telemetry output -raw grafana_admin_password)" --dry-run=client -o yaml | kubectl --context $(PROFILE) apply -f -
 	kubectl --context $(PROFILE) -n smoke-test delete job smoke-slo --ignore-not-found
-	kubectl --context $(PROFILE) apply -f tests/e2e/smoke-slo-job.yaml
-	tests/e2e/run-job.sh $(PROFILE) smoke-test smoke-slo 600
+	kubectl --context $(PROFILE) apply -f $(TESTS)/smoke-slo-job.yaml
+	$(TESTS)/run-job.sh $(PROFILE) smoke-test smoke-slo 600
 
 ephemeral-up:        ## Entorno efímero en EKS (TTL 72 h): cluster → imágenes → 00 → 10 → 20 → smoke
 	scripts/up-ephemeral.sh

@@ -32,7 +32,7 @@ jobs:
             echo "::endgroup::"
           done
       - name: shellcheck (scripts de ciclo de vida y tests)
-        run: shellcheck -x -S warning scripts/*.sh tests/e2e/*.sh
+        run: shellcheck -x -S warning scripts/*.sh
       - name: helm lint (charts locales)
         run: helm lint charts/*
       - uses: terraform-linters/setup-tflint@v6
@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [otel-gateway, java-autoinstrumentation, slo-burn-rate-alerts, observability-backends]
+        module: [otel-gateway, java-autoinstrumentation, slo-burn-rate-alerts, observability-backends, github-ci-ecr-role]
     steps:
       - uses: actions/checkout@v7
       - id: tfversion

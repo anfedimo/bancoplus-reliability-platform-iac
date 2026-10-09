@@ -17,6 +17,8 @@ for arg in "$@"; do
 done
 
 GENERATOR_SRC="${GENERATOR_SRC:-$ROOT/../sre-finops-otel-collector/traffic-generator}"
+# Imagen inicial de la aplicación: después la publica su propio pipeline (bancoplus-payments-qr, OIDC)
+APP_SRC="${APP_SRC:-$ROOT/../bancoplus-payments-qr}"
 START=$SECONDS
 
 log "Preflight"
@@ -47,7 +49,8 @@ push_image() {
   docker push "$REGISTRY/$repo:$tag"
 }
 
-push_image bancoplus/payments-qr 1.0.0 "$ROOT/sample-apps/payments-qr-java"
+[[ -d "$APP_SRC" ]] || die "repositorio de la aplicación no encontrado en $APP_SRC"
+push_image bancoplus/payments-qr 1.0.0 "$APP_SRC"
 if [[ -d "$GENERATOR_SRC" ]]; then
   push_image bancoplus/traffic-generator poc "$GENERATOR_SRC"
 else
@@ -55,7 +58,8 @@ else
 fi
 
 step=3
-for layer in 00-platform-base 10-telemetry 20-onboarding; do
+# gitops-bootstrap instala Argo CD: instrumentación, SLO y workloads se reconcilian desde bancoplus-platform-gitops
+for layer in 00-platform-base 10-telemetry gitops-bootstrap; do
   log "$step/6 · Capa $layer"
   tf "$layer" init -input=false >/dev/null
   tf "$layer" apply -input=false -auto-approve -var-file="$VARS"
@@ -85,6 +89,8 @@ fi
 log "Entorno efímero listo en $(( (SECONDS - START) / 60 )) min"
 cat <<EOF
   Grafana     http://$host   (usuario admin)
+  Argo CD     $(tf gitops-bootstrap output -raw argocd_url)   (usuario admin)
+  APM legado  $(tf 10-telemetry output -raw legacy_apm_url)
   Contraseña  terraform -chdir=stacks/aws-eks-ephemeral/10-telemetry output -raw grafana_admin_password | pbcopy
   kubectl     kubectl --context $KUBE_CONTEXT get pods -A
   TTL         destruir antes de $(date -v+72H '+%Y-%m-%d %H:%M'): scripts/teardown-ephemeral.sh

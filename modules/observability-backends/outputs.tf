@@ -18,6 +18,11 @@ output "grafana_service" {
   value       = "kube-prometheus-stack-grafana.${var.namespace}.svc.cluster.local:80"
 }
 
+output "legacy_apm_service_name" {
+  description = "Nombre del Service del stand-in del APM legado."
+  value       = kubernetes_service_v1.legacy_apm.metadata[0].name
+}
+
 output "grafana_service_name" {
   description = "Nombre del Service de Grafana (para resolver la URL del balanceador)."
   value       = "kube-prometheus-stack-grafana"

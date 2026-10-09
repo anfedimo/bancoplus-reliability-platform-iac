@@ -53,7 +53,8 @@ tagged_count() {
 }
 
 if cluster_exists; then
-  for layer in 20-onboarding 10-telemetry 00-platform-base; do destroy_layer "$layer"; done
+  # gitops-bootstrap primero: Argo CD elimina sus aplicaciones (finalizer) antes de desinstalarse
+  for layer in gitops-bootstrap 20-onboarding 10-telemetry 00-platform-base; do destroy_layer "$layer"; done
 
   log "Esperando que AWS elimine el NLB y los volúmenes EBS creados por Kubernetes"
   for _ in $(seq 1 30); do
@@ -66,6 +67,8 @@ else
   warn "el clúster $CLUSTER no existe: se omiten las capas de plataforma"
 fi
 
+# Identidad de CI: lee el repositorio ECR de la capa cluster, se destruye antes
+destroy_layer ci-identity
 destroy_layer cluster
 
 log "Barrido de recursos residuales (tag $TAG_KEY=$TAG_VALUE)"

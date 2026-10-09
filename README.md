@@ -29,10 +29,6 @@ stacks/                         Composición por entorno, un state por capa
   aws-eks-dev/                  Mismos módulos sobre EKS, backend S3 con locking nativo
   aws-eks-ephemeral/            Entorno efímero en EKS (TTL 72 h): cluster, capas 00-20 y guardrails de costo
 slo/                            SLO como código
-sample-apps/
-  payments-qr-java/             Aplicación de referencia sin dependencias de OpenTelemetry
-tests/
-  e2e/                          Smoke tests sobre el clúster por capa
 scripts/                        Ciclo de vida del entorno efímero (up / teardown)
 ```
 

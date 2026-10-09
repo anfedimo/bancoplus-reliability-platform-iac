@@ -125,3 +125,22 @@ resource "aws_budgets_budget" "ephemeral" {
     }
   }
 }
+
+# FinOps: endpoint de gateway para S3 sin costo. Las capas de imágenes de ECR se descargan desde S3:
+# con el endpoint ese tráfico no atraviesa el NAT Gateway (US$0,045/GB procesado).
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.${var.region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = module.vpc.private_route_table_ids
+
+  tags = { Name = "${var.cluster_name}-s3" }
+}
+
+# FinOps: costo del entorno visible en Cost Explorer por Environment, TTL, Owner y Purpose
+resource "aws_ce_cost_allocation_tag" "ephemeral" {
+  for_each = var.cost_allocation_tags_enabled ? local.ephemeral_tags : {}
+
+  tag_key = each.key
+  status  = "Active"
+}

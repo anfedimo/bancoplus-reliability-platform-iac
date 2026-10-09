@@ -53,6 +53,26 @@ variable "grafana_service" {
   }
 }
 
+variable "legacy_apm_service" {
+  description = "Exposición de la UI del stand-in del APM legado (consola propia, como Dynatrace). Mismas reglas que Grafana."
+  type = object({
+    type          = optional(string, "ClusterIP")
+    annotations   = optional(map(string), {})
+    source_ranges = optional(list(string), [])
+  })
+  default = {}
+
+  validation {
+    condition     = !contains(var.legacy_apm_service.source_ranges, "0.0.0.0/0")
+    error_message = "El APM legado no puede exponerse a 0.0.0.0/0: usar una allowlist."
+  }
+
+  validation {
+    condition     = var.legacy_apm_service.type != "LoadBalancer" || length(var.legacy_apm_service.source_ranges) > 0
+    error_message = "Un LoadBalancer del APM legado requiere source_ranges (allowlist)."
+  }
+}
+
 variable "persistence" {
   description = "Volúmenes persistentes para Grafana, Prometheus y Tempo (sobreviven reinicios y reprogramación de pods)."
   type = object({
