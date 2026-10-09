@@ -27,11 +27,13 @@ stacks/                         Composición por entorno, un state por capa
     10-telemetry/               Gateway, agentes de nodo y backends
     20-onboarding/              Un archivo por vertical
   aws-eks-dev/                  Mismos módulos sobre EKS, backend S3 con locking nativo
+  aws-eks-ephemeral/            Entorno efímero en EKS (TTL 72 h): cluster, capas 00-20 y guardrails de costo
 slo/                            SLO como código
 sample-apps/
   payments-qr-java/             Aplicación de referencia sin dependencias de OpenTelemetry
 tests/
   e2e/                          Smoke tests sobre el clúster por capa
+scripts/                        Ciclo de vida del entorno efímero (up / teardown)
 ```
 
 ## Modelo de consumo
@@ -131,3 +133,29 @@ la capa 10 la genera con `random_password` para que ningún secreto resida en el
 cada vez que el clúster se recrea. Los comandos se ejecutan desde la raíz del repositorio.
 El port-forward ocupa la terminal: ejecutar `open` desde otra.
 `make smoke-slo` justo antes de abrir el dashboard garantiza datos en todos los paneles.
+
+## Puesta en marcha en EKS (entorno efímero, TTL 72 h)
+
+```bash
+# 1. Cuenta AWS (una sola vez)
+aws configure --profile bancoplus-poc                         # Registra credenciales del usuario IAM
+curl -s https://checkip.amazonaws.com                         # Obtiene tu IP para la allowlist
+cp stacks/aws-eks-ephemeral/terraform.tfvars.example stacks/aws-eks-ephemeral/terraform.tfvars   # Define cuenta, IP y correo
+
+# 2. Aprovisionamiento completo (~30 min)
+make ephemeral-up                                             # Crea EKS, sube imágenes, aplica capas
+
+# 3. Grafana
+terraform -chdir=stacks/aws-eks-ephemeral/10-telemetry output -raw grafana_url             # Muestra URL pública de Grafana
+terraform -chdir=stacks/aws-eks-ephemeral/10-telemetry output -raw grafana_admin_password | pbcopy   # Copia contraseña admin al portapapeles
+kubectl --context bancoplus-eks get pods -A                   # Verifica estado de toda la plataforma
+
+# 4. Ensayo de la demo
+make smoke-slo ENV=aws-eks-ephemeral PROFILE=bancoplus-eks    # Genera tráfico y dispara alerta SLO
+
+# 5. Cierre (antes de 72 h)
+make ephemeral-down                                           # Destruye todo y verifica costo cero
+```
+
+Grafana solo responde desde las IPs de `admin_cidrs`: si cambias de red (por ejemplo, el lugar de la
+presentación), agrega la nueva IP en `terraform.tfvars` y ejecuta `make plan-10-telemetry ENV=aws-eks-ephemeral && make apply-10-telemetry ENV=aws-eks-ephemeral`.

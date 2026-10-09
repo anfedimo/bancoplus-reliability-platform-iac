@@ -1,4 +1,4 @@
-.PHONY: cluster-up cluster-down fmt validate test plan-% apply-% destroy-% status smoke smoke-onboarding smoke-slo app-image
+.PHONY: cluster-up cluster-down fmt validate test plan-% apply-% destroy-% status smoke smoke-onboarding smoke-slo app-image ephemeral-up ephemeral-down
 
 PROFILE ?= bancoplus
 GENERATOR_SRC ?= ../sre-finops-otel-collector/traffic-generator
@@ -7,7 +7,7 @@ STACKS  := stacks/$(ENV)
 # Backend remoto (aws-eks-*): configuración parcial y variables comunes del entorno
 BACKEND_CFG := $(if $(wildcard $(STACKS)/backend.hcl),-backend-config=../backend.hcl,)
 VAR_FILE    := $(if $(wildcard $(STACKS)/terraform.tfvars),-var-file=../terraform.tfvars,)
-MODULES := otel-gateway java-autoinstrumentation slo-burn-rate-alerts
+MODULES := otel-gateway java-autoinstrumentation slo-burn-rate-alerts observability-backends
 
 cluster-up:          ## Clúster local (fuera de Terraform: ciclo de vida independiente)
 	minikube start -p $(PROFILE) --driver=docker --cpus=6 --memory=6g --addons=metrics-server
@@ -66,6 +66,12 @@ smoke-slo:           ## Smoke test del SLO: dispara SLOFastBurn con tráfico rea
 	kubectl --context $(PROFILE) -n smoke-test delete job smoke-slo --ignore-not-found
 	kubectl --context $(PROFILE) apply -f tests/e2e/smoke-slo-job.yaml
 	tests/e2e/run-job.sh $(PROFILE) smoke-test smoke-slo 600
+
+ephemeral-up:        ## Entorno efímero en EKS (TTL 72 h): cluster → imágenes → 00 → 10 → 20 → smoke
+	scripts/up-ephemeral.sh
+
+ephemeral-down:      ## Destruye el entorno efímero y verifica costo residual cero
+	scripts/teardown-ephemeral.sh
 
 status:
 	kubectl --context $(PROFILE) get pods -A -l 'app.kubernetes.io/part-of in (opentelemetry,reliability-platform)' 2>/dev/null; \

@@ -31,6 +31,8 @@ jobs:
             terraform -chdir="$dir" validate
             echo "::endgroup::"
           done
+      - name: shellcheck (scripts de ciclo de vida y tests)
+        run: shellcheck -x -S warning scripts/*.sh tests/e2e/*.sh
       - name: helm lint (charts locales)
         run: helm lint charts/*
       - uses: terraform-linters/setup-tflint@v6
@@ -42,13 +44,16 @@ jobs:
           scan-type: config
           severity: HIGH,CRITICAL
           exit-code: "1"
+          # Ejemplos de los módulos descargados por terraform init no son código del repositorio
+          skip-dirs: "**/.terraform"
+          trivyignores: .trivyignore.yaml
 
   module-tests:
     name: terraform test
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [otel-gateway, java-autoinstrumentation, slo-burn-rate-alerts]
+        module: [otel-gateway, java-autoinstrumentation, slo-burn-rate-alerts, observability-backends]
     steps:
       - uses: actions/checkout@v7
       - id: tfversion

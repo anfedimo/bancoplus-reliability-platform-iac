@@ -17,3 +17,8 @@ output "grafana_service" {
   description = "Service de Grafana."
   value       = "kube-prometheus-stack-grafana.${var.namespace}.svc.cluster.local:80"
 }
+
+output "grafana_service_name" {
+  description = "Nombre del Service de Grafana (para resolver la URL del balanceador)."
+  value       = "kube-prometheus-stack-grafana"
+}
