@@ -1,0 +1,39 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: reliability-platform
+spec:
+  exporter:
+    endpoint: {{ .Values.exporter.endpoint | quote }}
+  propagators:
+    {{- toYaml .Values.propagators | nindent 4 }}
+  sampler:
+    type: {{ .Values.sampler.type }}
+  resource:
+    addK8sUIDAttributes: true
+    {{- with .Values.resourceAttributes }}
+    attributes:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  java:
+    {{- with .Values.java.image }}
+    image: {{ . | quote }}
+    {{- end }}
+    {{- with .Values.java.extensions }}
+    extensions:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    env:
+      - name: OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_RESPONSE_HEADERS
+        value: {{ join "," .Values.java.captureResponseHeaders | quote }}
+      # Métricas RED derivadas de spans en el Gateway: sin ingesta duplicada (FinOps)
+      - name: OTEL_METRICS_EXPORTER
+        value: {{ .Values.java.metricsExporter | quote }}
+      - name: OTEL_LOGS_EXPORTER
+        value: {{ .Values.java.logsExporter | quote }}
+      {{- with .Values.java.extraEnv }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}

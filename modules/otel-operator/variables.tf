@@ -28,6 +28,17 @@ variable "operator_chart_version" {
   default     = "0.124.1"
 }
 
+variable "replicas" {
+  description = "Réplicas del Operator. Con 1 réplica, un reinicio deja pods sin agente: el webhook de pods usa failurePolicy Ignore."
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.replicas >= 1
+    error_message = "replicas debe ser al menos 1."
+  }
+}
+
 variable "collector_image" {
   description = "Imagen por defecto de los OpenTelemetryCollector gestionados por el Operator."
   type = object({

@@ -58,6 +58,15 @@ run "pii_precede_a_todo_exporter" {
   }
 }
 
+run "pii_cubre_email_url_encoded" {
+  command = plan
+
+  assert {
+    condition     = strcontains(output.rendered_config, "(@|%40)")
+    error_message = "El patrón de email debe cubrir la forma URL-encoded (%40) que registran los agentes en url.query."
+  }
+}
+
 run "sampling_parametrizable" {
   command = plan
 
