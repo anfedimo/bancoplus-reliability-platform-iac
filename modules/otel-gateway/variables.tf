@@ -128,6 +128,12 @@ variable "business_semantics_enabled" {
   default     = true
 }
 
+variable "service_monitor_enabled" {
+  description = "Crea un ServiceMonitor (requiere CRDs de Prometheus Operator). Scrape por pod: con N réplicas, un scrape al Service perdería métricas."
+  type        = bool
+  default     = false
+}
+
 variable "span_metrics_dimensions" {
   description = "Dimensiones de las métricas RED. Cada dimensión multiplica la cardinalidad: cambios vía PR."
   type        = list(string)
