@@ -9,3 +9,6 @@ override.tf.json
 *_override.tf
 # Los módulos no fijan lock: lo fija cada stack que los consume
 modules/**/.terraform.lock.hcl
+__pycache__/
+# Artefactos de build de las aplicaciones de referencia
+sample-apps/**/target/

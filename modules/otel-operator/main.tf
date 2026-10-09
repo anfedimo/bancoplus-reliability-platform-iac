@@ -26,9 +26,18 @@ resource "helm_release" "operator" {
   timeout          = 600
 
   values = [yamlencode({
+    # El webhook de inyección lo sirven todas las réplicas (no solo el líder): HA del onboarding
+    replicaCount = var.replicas
+    pdb          = { create = var.replicas > 1, minAvailable = 1 }
+
     manager = {
       collectorImage           = var.collector_image
       autoInstrumentationImage = { java = var.java_agent_image }
+      # Sin requests el pod es BestEffort: bajo contención pierde el leader election y se reinicia
+      resources = {
+        requests = { cpu = "100m", memory = "128Mi" }
+        limits   = { memory = "256Mi" }
+      }
     }
     admissionWebhooks = {
       certManager = { enabled = true }

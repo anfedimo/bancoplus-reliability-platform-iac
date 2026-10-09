@@ -86,7 +86,9 @@ make cluster-up                    # clúster local (perfil bancoplus)
 make validate test                 # validate de módulos y stacks · terraform test
 make plan-<capa>                   # p. ej. make plan-10-telemetry
 make apply-<capa>                  # aplica el plan revisado
-make smoke                         # smoke test de telemetría sobre el clúster
+make smoke                         # smoke test de la capa de telemetría
+make app-image                     # imagen de la aplicación de referencia
+make smoke-onboarding              # smoke test de onboarding (Job dentro del clúster)
 make status
 make cluster-down
 ```

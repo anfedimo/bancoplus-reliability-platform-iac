@@ -1,0 +1,23 @@
+# Endpoint OTLP/HTTP del agente de nodo (puerto 4318: protocolo por defecto del agente Java 2.x)
+exporter:
+  endpoint: http://otel-node-agent.observability.svc.cluster.local:4318
+
+propagators: [tracecontext, baggage, b3multi]
+
+# El muestreo se decide en el Gateway (tail sampling)
+sampler:
+  type: parentbased_always_on
+
+resourceAttributes: {}
+
+java:
+  # Contrato de semántica de negocio
+  captureResponseHeaders: [X-Business-Operation, X-Business-Outcome, X-Business-Reason]
+  # Imagen del agente: vacío = la fijada en el Operator (capa 00)
+  image: ""
+  # Extensiones corporativas del agente (InnerSource), p. ej. mapeo de códigos legados a X-Business-*
+  extensions: []
+  # Señales habilitadas en el pipeline de la plataforma
+  metricsExporter: none
+  logsExporter: none
+  extraEnv: []
