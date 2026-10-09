@@ -1,0 +1,11 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+# Los módulos no fijan lock: lo fija cada stack que los consume
+modules/**/.terraform.lock.hcl

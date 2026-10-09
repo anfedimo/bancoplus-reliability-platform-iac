@@ -1,0 +1,58 @@
+name: terraform-ci
+
+on:
+  pull_request:
+    paths: ["modules/**", "stacks/**", "charts/**", ".github/workflows/terraform-ci.yaml"]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: fmt · validate · tflint · trivy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: tfversion
+        run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ steps.tfversion.outputs.version }}
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+      - name: terraform validate
+        run: |
+          for dir in modules/*/ stacks/local-minikube/*/; do
+            [ -n "$(ls "$dir"*.tf 2>/dev/null)" ] || continue
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false >/dev/null
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+      - uses: terraform-linters/setup-tflint@v6
+      - name: tflint
+        run: tflint --init --config "$PWD/.tflint.hcl" && tflint --recursive --config "$PWD/.tflint.hcl"
+      - name: trivy (misconfiguraciones IaC)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  module-tests:
+    name: terraform test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [otel-gateway]
+    steps:
+      - uses: actions/checkout@v7
+      - id: tfversion
+        run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ steps.tfversion.outputs.version }}
+      - working-directory: modules/${{ matrix.module }}
+        run: terraform init -backend=false -input=false && terraform test
