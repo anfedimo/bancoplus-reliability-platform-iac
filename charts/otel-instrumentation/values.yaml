@@ -12,7 +12,8 @@ resourceAttributes: {}
 
 java:
   # Contrato de semántica de negocio
-  captureResponseHeaders: [X-Business-Operation, X-Business-Outcome, X-Business-Reason]
+  captureResponseHeaders: [X-Business-Operation, X-Business-Outcome, X-Business-Reason, X-Business-Transaction-Id,
+                           X-Business-Amount, X-Business-Biller, X-Business-Biller-Name, X-Business-Customer]
   # Imagen del agente: vacío = la fijada en el Operator (capa 00)
   image: ""
   # Extensiones corporativas del agente (InnerSource), p. ej. mapeo de códigos legados a X-Business-*
