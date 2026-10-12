@@ -140,7 +140,7 @@ connectors:
 exporters:
 %{ if legacy_apm_enabled ~}
   # Dual-Shipping durante la ventana de transición. Cutover (F3) = legacy_apm.enabled = false
-  otlp_http/dynatrace:
+  otlp_http/apm-legacy:
     endpoint: ${legacy_apm_endpoint}
     headers:
       Authorization: "Api-Token $${env:DT_API_TOKEN}"

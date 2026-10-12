@@ -20,7 +20,7 @@ run "dual_shipping_durante_transicion" {
   }
 
   assert {
-    condition     = output.trace_exporters == ["otlp_http/dynatrace", "otlp_grpc/backend-otel"]
+    condition     = output.trace_exporters == ["otlp_http/apm-legacy", "otlp_grpc/backend-otel"]
     error_message = "Con legacy_apm.enabled el Gateway debe exportar a ambos destinos."
   }
 
@@ -39,7 +39,7 @@ run "cutover_f3_retira_apm_legado" {
   }
 
   assert {
-    condition     = !strcontains(output.rendered_config, "dynatrace")
+    condition     = !strcontains(output.rendered_config, "apm-legacy")
     error_message = "Tras el cutover no debe quedar configuración del APM legado."
   }
 }
