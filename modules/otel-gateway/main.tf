@@ -6,7 +6,7 @@ locals {
   )
 
   trace_exporters = concat(
-    var.legacy_apm.enabled ? ["otlp_http/dynatrace"] : [],
+    var.legacy_apm.enabled ? ["otlp_http/apm-legacy"] : [],
     ["otlp_grpc/backend-otel"],
   )
 
